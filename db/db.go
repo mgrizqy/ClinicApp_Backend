@@ -3,6 +3,7 @@ package db
 import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"backend/models"
 )
 
 // DB is our shared database pool pointer.
@@ -29,6 +30,18 @@ func InitDB(dsn string) error {
 	// Set defensive limits on our connection pool.
 	sqlDB.SetMaxOpenConns(10) // Limit total simultaneous connections to 10
 	sqlDB.SetMaxIdleConns(5)  // Keep up to 5 idle connections open in the pool
+
+	// Auto-create/update our database tables
+	err = DB.AutoMigrate(
+		&models.User{},
+		&models.PatientProfile{},
+		&models.DoctorProfile{},
+		&models.Appointment{},
+	)
+
+	if err != nil {
+		return err
+	}
 
 	// Line 3: If we reach this point, everything succeeded! We return nil.
 	return nil
