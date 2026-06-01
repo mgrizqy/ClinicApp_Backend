@@ -21,6 +21,11 @@ type RegisterInput struct {
 
 }
 
+type LoginInput struct {
+    Email       string  `json:"email" binding:"required,email"`
+    Password    string  `json:"password" binding:"required"`
+}
+
 func Register(c *gin.Context) {
     
     var input RegisterInput
@@ -109,5 +114,41 @@ func Register(c *gin.Context) {
     }
 
     c.JSON(http.StatusCreated, gin.H{"message": "Registration successful"})
+
+}
+
+func Login(c *gin.Context) {
+    var login LoginInput
+
+    if err := c.ShouldBindJSON(&login); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+        return
+    }
+
+    var user models.User
+
+    emailCheck := db.DB.Where("email = ?", login.Email).First(&user)
+
+    if emailCheck.Error != nil {
+        c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid email or password"})
+        return
+    }
+
+    if !utils.CheckPasswordHash(login.Password, user.PasswordHash) {
+        c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid email or password"})
+        return
+    }
+
+    token, err := utils.GenerateToken(user.ID, user.Role)
+
+    if err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+        return
+    }
+
+    c.SetCookie("token", token, 86400, "/", "localhost", false, true) // don't forget to set secure to true
+
+    c.JSON(http.StatusOK, gin.H{"message": "login successful"})
+    
 
 }
