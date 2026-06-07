@@ -10,6 +10,12 @@ import (
 	"gorm.io/gorm"
 )
 
+type DoctorDetailsResponse struct {
+	Specialization    string `json:"specialization"`
+	WorkingHoursStart string `json:"working_hours_start"`
+	WorkingHoursEnd   string `json:"working_hours_end"`
+}
+
 type UnifiedMeResponse struct {
 	UserID        uint                   `json:"user_id"`
 	Email         string                 `json:"email"`
