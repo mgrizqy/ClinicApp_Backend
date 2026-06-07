@@ -6,6 +6,7 @@ import (
 	"backend/pkg/utils"
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -68,7 +69,14 @@ func Register(c *gin.Context) {
             return
         } 
 
-        if input.WorkingHoursEnd <= input.WorkingHoursStart {
+        start, errStart := time.Parse("15:04", input.WorkingHoursStart)
+        end, errEnd := time.Parse("15:04", input.WorkingHoursEnd)
+
+        if errStart != nil || errEnd != nil{
+            c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "Working hours must match the 'HH:MM' (25 hour) format"})
+        }
+
+        if !start.Before(end) {
             c.JSON(http.StatusBadRequest, gin.H{"error": "Working hours end must be chronologically after start time"})
             return
         }
@@ -170,6 +178,11 @@ func Login(c *gin.Context) {
 
 }
 
+func Logout(c *gin.Context){
+    c.SetCookie("token", "", -1, "/", "localhost", false, true)
+
+    c.AbortWithStatusJSON(http.StatusOK, gin.H{"message": "logged out successfully"})
+}
 
 func Me (c *gin.Context) {
     userIDVal, exists := c.Get("userID")
@@ -182,7 +195,7 @@ func Me (c *gin.Context) {
         c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Invalid user identification format"})
         return
     }
-
+    
     var user models.User
 
     if err := db.DB.First(&user, userID).Error; err != nil {
@@ -241,4 +254,15 @@ func Me (c *gin.Context) {
     c.JSON(http.StatusOK, response)
     
 
+}
+
+func GetDoctors(c *gin.Context) {
+    doctors := []models.DoctorProfile{}
+
+    if err := db.DB.Preload("User").Find(&doctors).Error; err != nil {
+        c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+        return
+    }
+
+    c.JSON(http.StatusOK, doctors)
 }

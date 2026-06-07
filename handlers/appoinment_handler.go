@@ -3,6 +3,7 @@ package handlers
 import (
 	"backend/db"
 	"backend/models"
+	"backend/pkg/utils"
 	"errors"
 	"net/http"
 	"time"
@@ -54,12 +55,8 @@ func BookAppointment (c *gin.Context) {
 
     }
 
-    startTimeStr := input.StartTime.Format("15:04")
-    endTimeStr := endTime.Format("15:04")
-
-    if startTimeStr < doctor.WorkingHoursStart || endTimeStr > doctor.WorkingHoursEnd {
-        c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "appointment is outside working hours"})
-        return
+    if err := utils.ValidationBooking(input.StartTime, input.DurationMinutes, doctor.WorkingHoursStart, doctor.WorkingHoursEnd); err != nil {
+        c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
     }
 
     var conflictCount int64
@@ -92,5 +89,55 @@ func BookAppointment (c *gin.Context) {
     }
 
     c.JSON(http.StatusOK, gin.H{"message": "Successfully book an appointment"})
+
+}
+
+func GetAppointments (c *gin.Context) {
+    userIDVal, exists := c.Get("userID")
+
+    if !exists {
+        c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Authentication required"})
+        return
+    }
+
+    userID, ok := userIDVal.(uint)
+    if !ok {
+        c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Invalid user identification format"})
+        return
+    }
+
+   userRole, exists := c.Get("userRole")
+
+   if !exists {
+        c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Authentication credentials missing"})
+        return
+   } 
+
+   userRoleStr, ok := userRole.(string)
+
+    if !ok {
+        c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Invalid credential formatting"})
+        return
+    }
+
+
+    appointments := []models.Appointment{}
+
+        switch userRoleStr {
+    case "doctor":
+        if err := db.DB.Preload("Patient").Where("doctor_id = ?", userID).Find(&appointments).Error; err != nil {
+            c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+            return
+        }
+    case "patient":
+        if err := db.DB.Preload("Doctor.DoctorProfile").Where("patient_id = ?", userID).Find(&appointments).Error; err != nil {
+            c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+            return
+        }
+
+    }
+
+
+    c.JSON(http.StatusOK, appointments)
 
 }

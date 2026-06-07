@@ -1,11 +1,15 @@
 package main
 
-import(
-    "log"
-    "os"
-    "time"
-    "github.com/gin-gonic/gin"
-    "backend/db"
+import (
+	"backend/db"
+	"backend/handlers"
+	"backend/middleware"
+	"log"
+	"net/http"
+	"os"
+	"time"
+
+	"github.com/gin-gonic/gin"
 )
 
 func main() {
@@ -35,12 +39,23 @@ func main() {
     // Open port
     router := gin.Default()
 
-    router.GET("/ping", func(c *gin.Context){
-        c.JSON(200, gin.H{
-            "status": "healthy",
-            "message": "Clinic API is running and connected to database", 
-        })
-    })
+    router.Use(middleware.CORSMiddleware())
+
+    	router.GET("/ping", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"status":  "healthy",
+			"message": "Clinic API is running and connected to database",
+		})
+	})
+
+    router.POST("/api/auth/register", handlers.Register)
+    router.POST("/api/auth/login", handlers.Login)
+    router.POST("/api/auth/logout", handlers.Logout)
+    router.GET("/api/doctors", handlers.GetDoctors)
+    router.GET("api/auth/me", middleware.AuthRequire(), handlers.Me)
+    router.GET("/api/appointments", middleware.AuthRequire(), handlers.GetAppointments)
+    router.POST("/api/appointments", middleware.AuthRequire(), middleware.RequireRole("patient"), handlers.BookAppointment) 
+
 
     err := router.Run(":8080")
     if err != nil {
