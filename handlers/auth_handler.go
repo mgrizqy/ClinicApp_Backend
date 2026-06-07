@@ -29,11 +29,7 @@ type LoginInput struct {
     Password    string  `json:"password" binding:"required"`
 }
 
-type DoctorDetailsResponse struct {
-	Specialization    string `json:"specialization"`
-	WorkingHoursStart string `json:"working_hours_start"`
-	WorkingHoursEnd   string `json:"working_hours_end"`
-}
+
 
 
 
