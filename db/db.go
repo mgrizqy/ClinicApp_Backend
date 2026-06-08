@@ -39,6 +39,8 @@ func InitDB(dsn string) error {
 		&models.Appointment{},
 	)
 
+	DB.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_active ON users(email) WHERE deleted_at IS NULL;")
+
 	if err != nil {
 		return err
 	}

@@ -15,7 +15,7 @@ var(
 
 func ValidationBooking(startTime time.Time, durationMinutes int, workStart, workEnd string) error {
 
-    now := time.Now()
+    now := time.Now().UTC()
 
     if startTime.Before(now.Add(1 * time.Hour)) {
         return ErrShortNotice

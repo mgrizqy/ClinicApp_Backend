@@ -5,6 +5,7 @@ import (
 	"backend/models"
 	"errors"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -94,5 +95,128 @@ func Me (c *gin.Context) {
 
     c.JSON(http.StatusOK, response)
     
+
+}
+
+func DeleteMe (c *gin.Context) {
+    userIDVal, exists := c.Get("userID")
+    if !exists {
+        c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+        return
+    }
+
+    userID, ok := userIDVal.(uint)
+    
+    if !ok {
+        c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+        return
+    }
+
+
+    var user models.User
+
+   if err := db.DB.First(&user, userID).Error; err != nil {
+        if errors.Is(err, gorm.ErrRecordNotFound) {
+            c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "User session no longer valid"})
+            return
+        }
+
+        c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Internal server error occurred"})
+        return
+    }
+
+    tx := db.DB.Begin()
+
+    defer tx.Rollback()
+
+    switch user.Role {
+        case "doctor" :
+            if err := tx.Where("user_id = ?", userID).Delete(&models.DoctorProfile{}).Error; err != nil {
+                c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+                return
+            }
+        case "patient" :
+            if err := tx.Where("user_id = ?", userID).Delete(&models.PatientProfile{}).Error; err != nil {
+                c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+                return
+            }
+    }
+
+    if err := tx.Where("patient_id = ? OR doctor_id = ?", userID, userID).Delete(&models.Appointment{}).Error; err != nil {
+            c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+            return 
+    }
+
+    if err := tx.Delete(&user).Error; err != nil{
+            c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+            return
+    }
+
+    if err:= tx.Commit().Error; err != nil {
+            c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+            return
+    }
+
+    c.SetCookie("token", "", -1, "/", "localhost", false, true)
+
+    c.JSON(http.StatusOK, gin.H{"message": "Account has been deleted successfully"})
+
+}
+
+func DeleteUserByID (c *gin.Context) {
+    targetIDStr := c.Param("id")
+    id, err := strconv.Atoi(targetIDStr)
+
+    if err != nil {
+        c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "Your request was malformed, send a valid numeric ID"})
+        return
+    }
+
+    var user models.User
+
+    if err := db.DB.Where("id = ?", id).First(&user).Error; err != nil {
+        if errors.Is(err, gorm.ErrRecordNotFound) {
+            c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": "User not found"})
+            return
+        }
+
+        c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Internal server error occurred"})
+        return
+    }
+
+    tx := db.DB.Begin()
+
+    defer tx.Rollback()
+
+    switch user.Role {
+        case "doctor" :
+            if err := tx.Where("user_id = ?", id).Delete(&models.DoctorProfile{}).Error; err != nil {
+                c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+                return
+            }
+        case "patient" :
+            if err := tx.Where("user_id = ?", id).Delete(&models.PatientProfile{}).Error; err != nil {
+                c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+                return
+            }
+    }
+
+    if err := tx.Where("patient_id = ? OR doctor_id = ?", id, id).Delete(&models.Appointment{}).Error; err != nil {
+            c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+            return 
+    }
+
+    if err := tx.Delete(&user).Error; err != nil{
+            c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+            return
+    }
+
+    if err:= tx.Commit().Error; err != nil {
+            c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+            return
+    }
+
+
+    c.JSON(http.StatusOK, gin.H{"message": "Account has been deleted successfully"})
 
 }
