@@ -55,6 +55,8 @@ func main() {
     router.GET("api/auth/me", middleware.AuthRequire(), handlers.Me)
     router.GET("/api/appointments", middleware.AuthRequire(), handlers.GetAppointments)
     router.POST("/api/appointments", middleware.AuthRequire(), middleware.RequireRole("patient"), handlers.BookAppointment) 
+    router.DELETE("/api/users/me", middleware.AuthRequire(), handlers.DeleteMe)
+    router.DELETE("/api/users/:id",handlers.DeleteUserByID)
 
 
     err := router.Run(":8080")
